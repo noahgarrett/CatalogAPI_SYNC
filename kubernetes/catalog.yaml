@@ -1,0 +1,54 @@
+# # kubectl apply -f ./catalog.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: catalog-deployment
+spec:
+  selector:
+    matchLabels:
+      app: catalog
+  template:
+    metadata:
+      labels:
+        app: catalog
+    spec:
+      containers:
+      - name: catalog
+        image: jerboatechnologies/catalog:v2
+        resources:
+          limits:
+            memory: "128Mi"
+            cpu: "500m"
+        ports:
+        - containerPort: 80
+        env:
+          - name: MongoDbSettings__Host
+            value: mongodb-service
+          - name: MongoDbSettings__Password
+            valueFrom:
+              secretKeyRef:
+                name: catalog-secrets
+                key: mongodb-password # kubectl create secret generic catalog-secrets --from-literal=mongodb-password='pass'
+        livenessProbe:
+          httpGet:
+            path: /health/live
+            port: 80
+        readinessProbe:
+          httpGet:
+            path: /health/ready
+            port: 80
+        
+---
+# Access API outside the service
+apiVersion: v1
+kind: Service
+metadata:
+  name: catalog-service
+spec:
+  type: LoadBalancer
+  selector:
+    app: catalog
+  ports:
+  - port: 80
+    targetPort: 80
+
